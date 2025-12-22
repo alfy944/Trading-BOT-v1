@@ -10,7 +10,7 @@ import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 BETMINER_BASE_URL = "https://betminer.p.rapidapi.com/bm/v2/matches"
-DEFAULT_DEEPSEEK_MODEL = "deepseek-chat"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 ALLOWED_COMPETITIONS = {
     "Ekstraklasa (Poland)",
     "Premier League (England)",
@@ -40,9 +40,9 @@ ALLOWED_COMPETITIONS = {
 @dataclass
 class BotConfig:
     betminer_api_key: str
-    deepseek_api_key: str
-    deepseek_base_url: str
-    deepseek_model: str
+    openai_api_key: str
+    openai_base_url: str
+    openai_model: str
     min_odds: float
     max_odds: float
     min_success_probability: float
@@ -51,9 +51,9 @@ class BotConfig:
 
 def load_config() -> BotConfig:
     betminer_api_key = os.environ.get("BETMINER_API_KEY", "").strip()
-    deepseek_api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    deepseek_base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
-    deepseek_model = os.environ.get("DEEPSEEK_MODEL", DEFAULT_DEEPSEEK_MODEL)
+    openai_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    openai_base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    openai_model = os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
     min_odds = float(os.environ.get("MIN_ODDS", "1.9"))
     max_odds = float(os.environ.get("MAX_ODDS", "2.4"))
     min_success_probability = float(os.environ.get("MIN_SUCCESS_PROBABILITY", "0.65"))
@@ -61,14 +61,14 @@ def load_config() -> BotConfig:
 
     if not betminer_api_key:
         raise ValueError("Missing BETMINER_API_KEY environment variable.")
-    if not deepseek_api_key:
-        raise ValueError("Missing DEEPSEEK_API_KEY environment variable.")
+    if not openai_api_key:
+        raise ValueError("Missing OPENAI_API_KEY environment variable.")
 
     return BotConfig(
         betminer_api_key=betminer_api_key,
-        deepseek_api_key=deepseek_api_key,
-        deepseek_base_url=deepseek_base_url.rstrip("/"),
-        deepseek_model=deepseek_model,
+        openai_api_key=openai_api_key,
+        openai_base_url=openai_base_url.rstrip("/"),
+        openai_model=openai_model,
         min_odds=min_odds,
         max_odds=max_odds,
         min_success_probability=min_success_probability,
@@ -122,31 +122,47 @@ def build_prompt(match: Dict[str, Any], odds: Dict[str, float]) -> str:
     )
 
 
-def call_deepseek(config: BotConfig, prompt: str) -> Dict[str, Any]:
-    url = f"{config.deepseek_base_url}/chat/completions"
+def call_chatgpt(config: BotConfig, prompt: str) -> Dict[str, Any]:
+    url = f"{config.openai_base_url}/responses"
     headers = {
-        "Authorization": f"Bearer {config.deepseek_api_key}",
+        "Authorization": f"Bearer {config.openai_api_key}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": config.deepseek_model,
-        "messages": [
+        "model": config.openai_model,
+        "input": [
             {
                 "role": "system",
-                "content": (
-                    "Sei un analista di scommesse sportive focalizzato su selezioni ad alta "
-                    "probabilità di successo per trading in exchange."
-                ),
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Sei un analista di scommesse sportive focalizzato su selezioni ad alta "
+                            "probabilità di successo per trading in exchange."
+                        ),
+                    }
+                ],
             },
-            {"role": "user", "content": prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                ],
+            },
         ],
+        "tools": [{"type": "web_search_preview"}],
         "temperature": 0.2,
     }
     response = requests.post(url, headers=headers, json=payload, timeout=60)
     response.raise_for_status()
     data = response.json()
-    content = data["choices"][0]["message"]["content"]
-    return json.loads(content)
+    output_text = ""
+    for item in data.get("output", []):
+        if item.get("type") == "message":
+            for content in item.get("content", []):
+                if content.get("type") == "output_text":
+                    output_text += content.get("text", "")
+    return json.loads(output_text)
 
 
 def is_candidate(recommendation: Dict[str, Any], odds: Dict[str, float], config: BotConfig) -> bool:
@@ -177,7 +193,7 @@ def analyze_matches(config: BotConfig, matches: List[Dict[str, Any]]) -> List[Di
             continue
         odds = extract_odds(match)
         prompt = build_prompt(match, odds)
-        recommendation = call_deepseek(config, prompt)
+        recommendation = call_chatgpt(config, prompt)
         if not recommendation or recommendation.get("recommended_market") in (None, "null"):
             continue
         if not is_candidate(recommendation, odds, config):
@@ -214,7 +230,7 @@ def schedule_daily(config: BotConfig, hour: int, minute: int) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Bot per analisi pronostici con DeepSeek.")
+    parser = argparse.ArgumentParser(description="Bot per analisi pronostici con ChatGPT.")
     parser.add_argument("--run-once", action="store_true", help="Esegui subito una sola volta.")
     parser.add_argument("--date", help="Data delle partite in formato YYYY-MM-DD (default oggi).")
     parser.add_argument("--hour", type=int, default=10, help="Ora della chiamata giornaliera.")
