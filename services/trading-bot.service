@@ -1,0 +1,15 @@
+[Unit]
+Description=Trading Bot Scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/Trading-BOT-v1
+EnvironmentFile=/home/ubuntu/Trading-BOT-v1/.env
+ExecStart=/home/ubuntu/Trading-BOT-v1/venv-trading-bot/bin/python /home/ubuntu/Trading-BOT-v1/trading_bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
