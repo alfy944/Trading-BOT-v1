@@ -30,6 +30,19 @@ export MIN_SUCCESS_PROBABILITY="0.65"
 export OUTPUT_PATH="output.json"
 ```
 
+Puoi salvare queste variabili in un file `.env` nella root del progetto:
+
+```bash
+BETMINER_API_KEY="..."
+OPENAI_API_KEY="..."
+OPENAI_BASE_URL="https://api.openai.com/v1"
+OPENAI_MODEL="gpt-5"
+MIN_ODDS="1.9"
+MAX_ODDS="2.4"
+MIN_SUCCESS_PROBABILITY="0.65"
+OUTPUT_PATH="output.json"
+```
+
 ## Note API Betminer (RapidAPI)
 
 L'API Betminer richiede **obbligatoriamente** gli header RapidAPI:
@@ -82,6 +95,43 @@ python dashboard.py
 ```
 
 Apri `http://localhost:5000` nel browser.
+
+## Avvio automatico (systemd)
+
+Per avviare **sempre** bot e dashboard dopo il reboot, usa i servizi systemd inclusi.
+
+1. Copia i file di servizio:
+
+```bash
+sudo cp services/trading-bot.service /etc/systemd/system/
+sudo cp services/trading-dashboard.service /etc/systemd/system/
+```
+
+2. Ricarica systemd e abilita i servizi:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now trading-bot.service
+sudo systemctl enable --now trading-dashboard.service
+```
+
+3. Controlla lo stato:
+
+```bash
+systemctl status trading-bot.service
+systemctl status trading-dashboard.service
+```
+
+Assicurati che i percorsi in `services/*.service` corrispondano alla tua VPS
+(es. `/home/ubuntu/Trading-BOT-v1` e al virtualenv).
+
+## Avvio automatico con script unico
+
+In alternativa puoi usare lo script `run_all.sh` per avviare dashboard e bot insieme:
+
+```bash
+./run_all.sh
+```
 
 ## Output
 
