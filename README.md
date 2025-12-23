@@ -23,12 +23,23 @@ Imposta le variabili d'ambiente (esempio):
 export BETMINER_API_KEY="..."
 export OPENAI_API_KEY="..."
 export OPENAI_BASE_URL="https://api.openai.com/v1"
-export OPENAI_MODEL="gpt-4o-mini"
+export OPENAI_MODEL="gpt-5"
 export MIN_ODDS="1.9"
 export MAX_ODDS="2.4"
 export MIN_SUCCESS_PROBABILITY="0.65"
 export OUTPUT_PATH="output.json"
 ```
+
+## Note API Betminer (RapidAPI)
+
+L'API Betminer richiede **obbligatoriamente** gli header RapidAPI:
+
+```
+x-rapidapi-host: betminer.p.rapidapi.com
+x-rapidapi-key: LA_TUA_API_KEY
+```
+
+Il bot li invia automaticamente usando `BETMINER_API_KEY`.
 
 ## Uso
 
@@ -49,6 +60,9 @@ Puoi cambiare orario con:
 ```bash
 python trading_bot.py --hour 10 --minute 0
 ```
+
+La scansione giornaliera considera **solo le partite della stessa giornata**. Se non ci sono partite disponibili,
+il bot stampa un messaggio e produce comunque un output JSON vuoto.
 
 ## Dashboard
 

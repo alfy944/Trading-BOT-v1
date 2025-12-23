@@ -10,7 +10,7 @@ import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 BETMINER_BASE_URL = "https://betminer.p.rapidapi.com/bm/v2/matches"
-DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_OPENAI_MODEL = "gpt-5"
 ALLOWED_COMPETITIONS = {
     "Ekstraklasa (Poland)",
     "Premier League (England)",
@@ -184,10 +184,19 @@ def is_candidate(recommendation: Dict[str, Any], odds: Dict[str, float], config:
     )
 
 
-def analyze_matches(config: BotConfig, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def analyze_matches(
+    config: BotConfig,
+    matches: List[Dict[str, Any]],
+    target_date: date,
+) -> List[Dict[str, Any]]:
     results = []
     for match in matches:
         match_details = match.get("match_details", {})
+        match_date_str = match_details.get("match_date")
+        if match_date_str:
+            match_day = match_date_str.split(" ")[0]
+            if match_day != target_date.isoformat():
+                continue
         competition = match_details.get("competition_full")
         if competition not in ALLOWED_COMPETITIONS:
             continue
@@ -219,7 +228,9 @@ def save_results(results: List[Dict[str, Any]], output_path: Optional[str]) -> N
 
 def run_once(config: BotConfig, match_date: date) -> None:
     matches = fetch_matches(config, match_date)
-    results = analyze_matches(config, matches)
+    results = analyze_matches(config, matches, match_date)
+    if not results:
+        print("Nessuna partita trovata per la giornata odierna.")
     save_results(results, config.output_path)
 
 
